@@ -1,7 +1,7 @@
 from pyexpat.errors import messages
 
 from langchain_core.messages import SystemMessage, AIMessage, HumanMessage, RemoveMessage
-from oauthlib.uri_validate import query
+from langgraph.types import interrupt
 
 from models.model_factory import get_llm_client
 from prompts.prompts import (template_intent_recognition_lite, template_info_completion,
@@ -93,6 +93,24 @@ def human_add_info(state: PublicState):
         }
     return {
         'messages': human_message,
+        'full_info': state['full_info'] + f"用户: {human_message}\n",
+    }
+
+
+def human_add_info_interrupt(state: PublicState):
+    # 使用 interrupt 暂停等待用户输入
+    human_message = interrupt({
+        "question": state['messages'][-1].content,
+        "waiting_for_input": True
+    })
+
+    # 恢复后处理用户输入
+    if input_detection(state['intent'], human_message):
+        return{
+            'high_risk_words': True
+        }
+    return {
+        'messages': [HumanMessage(content=human_message)],
         'full_info': state['full_info'] + f"用户: {human_message}\n",
     }
 

@@ -49,16 +49,17 @@ app = graph.compile()
 # except Exception:
 #     pass
 
-response = app.invoke({
-    # "messages": [HumanMessage(content="我有点咳嗽")]
-    # "messages": [HumanMessage(content="哮喘有哪些症状")]
-    "messages": [HumanMessage(content=input("您好！请问有什么要提问的吗？\n"))]
-})
+if __name__ == '__main__':
+    response = app.invoke({
+        # "messages": [HumanMessage(content="我有点咳嗽")]
+        # "messages": [HumanMessage(content="哮喘有哪些症状")]
+        "messages": [HumanMessage(content=input("您好！请问有什么要提问的吗？\n"))]
+    })
 
-# print(response["messages"])
-clr = '\033[32m'
-reset = '\033[0m'
-print(f'\n{clr}【流程已结束】{reset}')
+    # print(response["messages"])
+    clr = '\033[32m'
+    reset = '\033[0m'
+    print(f'\n{clr}【流程已结束】{reset}')
 
 
 
