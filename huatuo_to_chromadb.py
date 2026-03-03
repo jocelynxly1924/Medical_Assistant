@@ -37,20 +37,44 @@ def get_document_from_jsonl(file_path = 'data/respiratory_symptoms.jsonl'):
 # documents = documents[0:24]
 # print(documents)
 
-def json_to_chromadb(documents):
+# def json_to_chromadb(documents):
+#     embedding_client = OllamaEmbeddings(model="bge-m3:latest")
+#
+#     vector_store = Chroma(collection_name='Huatuo_lite_respiratory_demo',
+#                           embedding_function=embedding_client,
+#                           persist_directory='data/Huatuo_lite_respiratory_demo', )
+#     vector_store.add_documents(documents)
+
+def json_to_chromadb_batch(documents):
     embedding_client = OllamaEmbeddings(model="bge-m3:latest")
 
-    vector_store = Chroma(collection_name='Huatuo_lite_respiratory_demo',
+    vector_store = Chroma(collection_name='Huatuo_lite_respiratory_full',
                           embedding_function=embedding_client,
-                          persist_directory='data/Huatuo_lite_respiratory_demo', )
-    vector_store.add_documents(documents)
+                          persist_directory='data/Huatuo_lite_respiratory_full', )
+    batch_size = 100
+    print("开始嵌入……")
+    for i in range(0, len(documents), batch_size):
+        batch = documents[i:i + batch_size]
+        vector_store.add_documents(batch)
+        print(f"Processed {i + len(batch)}/{len(documents)} documents")
 
 
 if __name__ == '__main__':
-    # documents = get_document_from_jsonl()
-    # documents = documents[0:24]
-    # json_to_chromadb(documents)
-    retriever = get_retriever()
+
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # print(current_dir)
+    # 正确的数据路径
+    persist_directory = os.path.join(current_dir, 'data', 'respiratory_symptoms.jsonl')
+    # print(persist_directory)
+
+    documents = get_document_from_jsonl(file_path=persist_directory)
+
+    start_time = time.time()
+    json_to_chromadb_batch(documents)
+    end_time = time.time()
+    print(f"ChromaDB 嵌入时间：{end_time - start_time}秒")
+
+    retriever = get_retriever(repository_name='Huatuo_lite_respiratory_full')
     start_time = time.time()
     print(retriever.invoke("咳嗽五天没好怎么办"))
     end_time = time.time()
