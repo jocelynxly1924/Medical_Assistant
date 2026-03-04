@@ -5,7 +5,7 @@ from langgraph.types import Command
 from graph_draft import get_graph
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-change-in-production'
+app.secret_key = 'secret-key-in-production-mode'
 
 graph_app = get_graph()
 
@@ -96,4 +96,4 @@ def reset():
     return jsonify({'status': 'success', 'message': '对话已重置'})
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5001)
