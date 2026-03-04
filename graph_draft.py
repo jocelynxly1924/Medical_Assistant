@@ -31,39 +31,42 @@ def get_graph():
     graph.add_edge('tools', 'retrieval_and_answer_agent')
     graph.add_edge('warning', END)
 
+    memory = MemorySaver()
+    app = graph.compile(checkpointer=memory)
+
     # from IPython.display import Image, display
     # try:
     #     display(Image(app.get_graph().draw_mermaid_png(output_file_path='./graph.png')))
     # except Exception:
     #     pass
-    memory = MemorySaver()
-    return graph.compile(checkpointer=memory)
+
+    return app
 
 if __name__ == '__main__':
-    from langchain_core.messages import HumanMessage
-    from langgraph.types import Command
-    import uuid
-    
+    # from langchain_core.messages import HumanMessage
+    # from langgraph.types import Command
+    # import uuid
+    #
     app = get_graph()
-    thread_id = str(uuid.uuid4())
-    config = {"configurable": {"thread_id": thread_id}}
-    
-    initial_input = input("您好！请问有什么要提问的吗？\n")
-    response = app.invoke(
-        {"messages": [HumanMessage(content=initial_input)]},
-        config=config
-    )
-    
-    while True:
-        if response.get('high_risk_words'):
-            print("⚠️ 检测到高风险，请线下就医！")
-            break
-        
-        state = app.get_state(config)
-        if state.next:
-            user_input = input("请输入: ")
-            response = app.invoke(Command(resume=user_input), config=config)
-        else:
-            break
-    
+    # thread_id = str(uuid.uuid4())
+    # config = {"configurable": {"thread_id": thread_id}}
+    #
+    # initial_input = input("您好！请问有什么要提问的吗？\n")
+    # response = app.invoke(
+    #     {"messages": [HumanMessage(content=initial_input)]},
+    #     config=config
+    # )
+    #
+    # while True:
+    #     if response.get('high_risk_words'):
+    #         print("⚠️ 检测到高风险，请线下就医！")
+    #         break
+    #
+    #     state = app.get_state(config)
+    #     if state.next:
+    #         user_input = input("请输入: ")
+    #         response = app.invoke(Command(resume=user_input), config=config)
+    #     else:
+    #         break
+    #
     print("\n【流程已结束】")
