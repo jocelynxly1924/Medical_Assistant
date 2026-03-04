@@ -26,4 +26,4 @@
   - 异步的实现
   - ✅前端（使用FastAPI/Gradio等框架）
   - 使用ragas或其他框架进行测评，并优化。
-  - Readme补全。
+  - ✅Readme补全。
