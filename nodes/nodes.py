@@ -58,17 +58,34 @@ def info_completion(state: PublicState):
         'messages': [response]
     }
 
+# def info_refinement(state: PublicState):
+#     history = state['full_info']
+#     prompt = template_summarization.format(history=history)
+#     summary = llm.invoke(prompt).content
+#
+#     print("您的输入信息汇总：\n", summary)
+#
+#     return {
+#         'messages': [HumanMessage(content=summary)],
+#         'query_refined': summary
+#     }
+
 def info_refinement(state: PublicState):
-    history = state['full_info']
-    prompt = template_summarization.format(history=history)
-    summary = llm.invoke(prompt).content
-    
-    print("您的输入信息汇总：\n", summary)
-    
-    return {
-        'messages': [HumanMessage(content=summary)],
-        'query_refined': summary
-    }
+    messages = state["messages"]
+    # print("消息提炼", state)
+    if len(messages) == 1:
+        print("仅一个消息，无需提炼")
+        return{'query_refined': state["query"]}
+    else:
+        history = state['full_info']
+        # print("总结前：\n",history)
+        prompt = template_summarization.format(history = history)
+        response = llm.invoke(prompt).content
+        print("您的输入信息汇总：\n",response)
+        return {
+            'messages': [RemoveMessage(id=m.id)for m in messages] + [HumanMessage(content=response)],
+            'query_refined': response
+        }
 
 def info_retrieval_and_answer_generation_agent(state: PublicState):
     rag_times = state.get('rag_times', 0)
@@ -76,6 +93,7 @@ def info_retrieval_and_answer_generation_agent(state: PublicState):
     
     if rag_times < 2 and web_times < 2:
         prompt = template_retrieval_and_answer
+        print('我的状态：', state)
         response = llm_with_tools.invoke([SystemMessage(content=prompt)] + state['messages'])
     else:
         prompt = template_final_answer
