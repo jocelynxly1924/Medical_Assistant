@@ -95,7 +95,7 @@ pip install flask langchain langgraph langchain-ollama langchain-openai langchai
 ### 运行
 
 ```bash
-python app.py
+python app_gradio.py
 ```
 
 系统将在 `http://localhost:5001` 运行。
