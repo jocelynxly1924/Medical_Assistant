@@ -10,6 +10,7 @@ from tools.get_rag_huatuo_qa import get_rag_qa_tool
 from tools.get_medicine_info import get_medicine_info_tool
 from router.routers import router_to_info_collection, router_after_info_completion, router_agent_to_tools
 
+
 def get_graph():
     tools = [get_rag_qa_tool, get_medicine_info_tool]
     tool_node = ToolNode(tools)
@@ -32,7 +33,7 @@ def get_graph():
     graph.add_edge('warning', END)
 
     memory = MemorySaver()
-    app = graph.compile(checkpointer=memory)
+    app = graph.compile(checkpointer=memory, interrupt_before=[])
 
     # from IPython.display import Image, display
     # try:

@@ -4,7 +4,8 @@ from langchain_ollama import OllamaEmbeddings
 import os
 from states.states import PublicState
 from langchain_chroma import Chroma
-from langchain_core.tools import tool
+from langchain_core.tools import tool, InjectedToolArg
+
 
 def get_retriever(repository_name = 'Huatuo_lite_respiratory_full'):
     embedding_client = OllamaEmbeddings(model="bge-m3:latest")
@@ -24,19 +25,18 @@ def get_retriever(repository_name = 'Huatuo_lite_respiratory_full'):
 
 @tool
 def get_rag_qa_tool(query: str):
-
-    """从Huatuo数据库中调取医疗诊断问答对，以获取疾病具体信息、症状、治疗方法、注意事项等信息。
+    """从HuaTuo数据库中调取医疗诊断问答对，以获取疾病具体信息、症状、治疗方法、注意事项等信息。
 
     Args:
         query: 需要查询的语句
 
     Returns:
-        从Huatuo医疗问答对数据库中获取的查询结果
+        从HuaTuo医疗问答对数据库中获取的查询结果
         """
 
     yellow = '\033[93m'
     reset = '\033[0m'
-    print(f"{yellow}正在查询HuaTuo数据库……{reset}")
+    print(f"{yellow}正在查询 HuaTuo 数据库……{reset}")
 
     retriever = get_retriever(repository_name='Huatuo_lite_respiratory_full')
     docs = retriever.invoke(query)

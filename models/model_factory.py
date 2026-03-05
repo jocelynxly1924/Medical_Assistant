@@ -18,7 +18,7 @@ def get_llm_client(model_name, organization='dashscope'):
         return OllamaLLM(model='qwen2.5:7b-instruct-q4_K_M')
     elif organization == 'dashscope':
         return ChatOpenAI(model = model_name,
-                      api_key=os.environ['DASHSCOPE_API_KEY'],
+                      api_key=os.environ['DASHSCOPE_API_KEY_XLY'],
                       base_url='https://dashscope.aliyuncs.com/compatible-mode/v1',
                       )
 

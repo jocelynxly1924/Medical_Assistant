@@ -1,6 +1,7 @@
 from langchain_core.messages import SystemMessage, AIMessage, HumanMessage, RemoveMessage
 from langgraph.types import interrupt
 
+from extensions import socketio
 from models.model_factory import get_llm_client
 from prompts.prompts import (template_intent_recognition_lite, template_info_completion,
                              template_summarization, template_final_answer, template_retrieval_and_answer)
@@ -58,18 +59,6 @@ def info_completion(state: PublicState):
         'messages': [response]
     }
 
-# def info_refinement(state: PublicState):
-#     history = state['full_info']
-#     prompt = template_summarization.format(history=history)
-#     summary = llm.invoke(prompt).content
-#
-#     print("您的输入信息汇总：\n", summary)
-#
-#     return {
-#         'messages': [HumanMessage(content=summary)],
-#         'query_refined': summary
-#     }
-
 def info_refinement(state: PublicState):
     messages = state["messages"]
     # print("消息提炼", state)
@@ -90,11 +79,43 @@ def info_refinement(state: PublicState):
 def info_retrieval_and_answer_generation_agent(state: PublicState):
     rag_times = state.get('rag_times', 0)
     web_times = state.get('web_times', 0)
-    
+
     if rag_times < 2 and web_times < 2:
         prompt = template_retrieval_and_answer
         print('我的状态：', state)
-        response = llm_with_tools.invoke([SystemMessage(content=prompt)] + state['messages'])
+        response = llm_with_tools.invoke([SystemMessage(content=prompt)] + state['messages'],) # 传递 config
+        # # ========== 核心修复：优化 tool_calls 检测逻辑 ==========
+        # # 1. 从 config 中提取 thread_id
+        # thread_id = None
+        # if config and isinstance(config, dict):
+        #     thread_id = config.get("configurable", {}).get("thread_id")
+        # print("现在的thread id：", thread_id)
+        #
+        # # 2. 修复：兼容 LLM 响应的不同格式 + 延迟检测（确保 tool_calls 已生成）
+        # # 方案1：先尝试直接获取，失败则从 response.additional_kwargs 提取（LLM 响应的备用存储位置）
+        # tool_calls = None
+        # # 优先从属性获取
+        # if hasattr(response, 'tool_calls') and response.tool_calls:
+        #     tool_calls = response.tool_calls
+        # # 备用：从 additional_kwargs 提取（很多 LLM 会把 tool_calls 存在这里）
+        # elif hasattr(response, 'additional_kwargs') and 'tool_calls' in response.additional_kwargs:
+        #     tool_calls = response.additional_kwargs['tool_calls']
+        #
+        # # 3. 检测到工具调用就发送消息
+        # if tool_calls:
+        #     for tool_call in tool_calls:
+        #         if tool_call.get('name') == 'get_rag_qa_tool':
+        #             if thread_id:
+        #                 print("检测到调用 get_rag_qa_tool，发送 SocketIO 状态消息")
+        #                 socketio.emit(
+        #                     'status',
+        #                     {'message': '正在查询 HuaTuo 知识库……'},
+        #                     room=thread_id,
+        #                     namespace='/'
+        #                 )
+        #             break
+        # # ========== 核心修复结束 ==========
+
     else:
         prompt = template_final_answer
         response = llm.invoke([SystemMessage(content=prompt)] + state['messages'])
@@ -114,3 +135,5 @@ def info_retrieval_and_answer_generation_agent(state: PublicState):
         'web_times': web_times,
         'rag_times': rag_times,
     }
+
+
