@@ -9,3 +9,4 @@ class PublicState(MessagesState):
     query_refined: str = ""
     rag_times: int = 0
     web_times: int = 0
+    source: str = ""

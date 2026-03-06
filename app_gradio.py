@@ -33,6 +33,7 @@ def chat_with_assistant(message, history):
 
     # 立即返回用户消息，让界面先显示用户输入
     yield history, ""  # yield：生成器，逐步输出内容
+    print("历史：",history)
     # 使用yield的原因：
     # 先显示用户消息：yield history, "" ：history → 更新对话区域，显示用户刚发的消息；“”：清空对话框
     # 再逐步生成回复：后面还有代码会继续 yield，把助手的回复逐字或逐段地显示出来
@@ -83,16 +84,24 @@ def chat_with_assistant(message, history):
 
         # 对话完成，获取最终回复
         if response.get('messages'):
+            print('huifu',response)
             last_message = response['messages'][-1]
             ai_response = last_message.content if hasattr(last_message, 'content') else str(last_message)
+            # source_message = response['messages'][-1]
+            # source_response = source_message.content
         else:
             ai_response = '处理完成'
+            # source_response =''
 
-        # 对话结束，重置thread_id以便下次新对话
+            # 对话结束，重置thread_id以便下次新对话
         thread_id = str(uuid.uuid4())
 
         history.append({"role": "assistant", "content": ai_response})
         yield history, ""
+        print("历史结束",history)
+
+        # history.append({"role": "assistant", "content": source_response})
+        # yield history, ""
 
     except Exception as e:
         history.append({"role": "assistant", "content": f"处理出错: {str(e)}"})

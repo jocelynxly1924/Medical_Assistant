@@ -1,4 +1,4 @@
-from langchain_core.messages import SystemMessage, AIMessage, HumanMessage, RemoveMessage
+from langchain_core.messages import SystemMessage, AIMessage, HumanMessage, RemoveMessage, ToolMessage
 from langgraph.types import interrupt
 
 from models.model_factory import get_llm_client
@@ -8,6 +8,8 @@ from states.states import PublicState
 from tools.high_risk_word_detection import input_detection
 from tools.get_medicine_info import get_medicine_info_tool
 from tools.get_rag_huatuo_qa import get_rag_qa_tool
+import json
+import re
 
 tool_list = [get_medicine_info_tool, get_rag_qa_tool]
 llm = get_llm_client(model_name='qwen3-max')
@@ -20,6 +22,7 @@ def warning(state: PublicState):
     }
 
 def intent_recognition(state: PublicState):
+    print("开始状态：",state)
     user_message = state["messages"][-1].content
     system_prompt = template_intent_recognition_lite.format(query=user_message)
     intent = llm.invoke([SystemMessage(content=system_prompt)]).content
@@ -90,6 +93,7 @@ def info_refinement(state: PublicState):
 def info_retrieval_and_answer_generation_agent(state: PublicState):
     rag_times = state.get('rag_times', 0)
     web_times = state.get('web_times', 0)
+    # source = ""
     
     if rag_times < 2 and web_times < 2:
         prompt = template_retrieval_and_answer
@@ -105,10 +109,32 @@ def info_retrieval_and_answer_generation_agent(state: PublicState):
                 web_times += 1
             elif tool_call['name'] == 'get_rag_qa_tool':
                 rag_times += 1
-    
+
     if response.content:
+        source = ''
+        for msg in reversed(state["messages"]):
+            if isinstance(msg, ToolMessage) and msg.name == 'get_rag_qa_tool':
+                tool_message_content = msg.content
+                print("*** ToolMessage content (前200字符):", tool_message_content[:200])
+                try:
+                    source_start = tool_message_content.find("'source': '")
+                    if source_start != -1:
+                        source_start += len("'source': '")
+                        source_end = tool_message_content.rfind("'}")
+                        if source_end != -1 and source_end > source_start:
+                            source = tool_message_content[source_start:source_end]
+                            source = source.replace('\\n', '\n')
+                            print('提取到的 source (前100字符):', source[:100])
+                            break
+                except Exception as e:
+                    print(f"解析 ToolMessage content 失败: {e}")
+                    continue
+        
+        if source:
+            response.content = response.content + '\n\n' + source
         print(f"\n最终回答：\n\n{response.content}")
-    
+        print("结束状态：",state)
+
     return {
         'messages': [response],
         'web_times': web_times,
