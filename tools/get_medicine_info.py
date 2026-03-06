@@ -23,15 +23,19 @@ def get_medicine_info_tool(medicine_name: str, target_fields: List[str]):
     print(f"{yellow}正在查询药品信息……{reset}")
     search_url = f"https://www.dayi.org.cn/search?keyword={medicine_name}&type=medical"
     medicine_info = get_first_drug_info(search_url)
+    print('查询到结果：', medicine_info)
     content_dict = {}
     for field in medicine_info.get('content', {}):
         if field in target_fields:
             content_dict[field] = medicine_info['content'][field]
-    medicine_info_related ={
+    medicine_info_related = {
         'name': medicine_info.get('name','None'),
         'content': content_dict
     }
-    return medicine_info_related
+    return {
+        'medicine_info': medicine_info_related,
+        'source': medicine_info['source']
+    }
 
 
 
@@ -183,6 +187,9 @@ def get_first_drug_info(search_url):
 
     # 将content_dict存入info_dict
     info_dict['content'] = content_dict
+
+    source = f'————————————————————————————————————\n\n数据来源：中国医药信息查询平台。链接：{drug_url}'
+    info_dict['source'] = source
 
     # print(info_dict)
     return info_dict

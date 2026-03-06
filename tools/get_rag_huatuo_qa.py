@@ -24,12 +24,12 @@ def get_retriever(repository_name = 'Huatuo_lite_respiratory_full'):
     return retriever
 
 def get_source(docs):
-    source = '数据来源：Huatuo Lite数据库 \n 参考案例：\n'
+    source = '————————————————————————————————————\n\n数据来源：Huatuo Lite数据库 \n 参考案例：\n'
     for i, doc in enumerate(docs):
         query = doc.page_content
         answer = doc.metadata['answer']
         source += f"{i+1}.用户问题：{query}\n医生回答：{answer}\n"
-    source += '本建议仅为AI基于有限信息的分析结果，不作为最终医疗依据。您的健康至关重要，具体的诊疗方案请务必咨询专业医生。'
+    source += '\n本建议仅为AI基于有限信息的分析结果，不作为最终医疗依据。您的健康至关重要，具体的诊疗方案请务必咨询专业医生。'
     print(source)
     return source
 
@@ -56,8 +56,8 @@ def get_rag_qa_tool(query: str):
     # get_source(docs)
     source = get_source(docs)
     return {
-        "rag_retrieved_docs": docs,
-        "source": source
+        'rag_retrieved_docs': docs,
+        'source': source
     }
 
 if __name__=='__main__':
