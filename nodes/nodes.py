@@ -8,6 +8,7 @@ from states.states import PublicState
 from tools.high_risk_word_detection import input_detection
 from tools.get_medicine_info import get_medicine_info_tool
 from tools.get_rag_huatuo_qa import get_rag_qa_tool
+from tools.redis_history import get_conversation_history
 import json
 import re
 
@@ -41,12 +42,21 @@ def intent_recognition(state: PublicState):
 def info_completion(state: PublicState):
     conversation_history = state.get("full_info", "")
     intent = state.get('intent', '')
+    user_id = state.get('user_id', '')
+    
+    historical_query = get_conversation_history(user_id)
+    
+    if historical_query:
+        conversation_history = f"[历史查询信息]\n{historical_query}\n\n[当前对话]\n{conversation_history}"
     
     prompt = template_info_completion.format(intent=intent, history=conversation_history)
     response = llm.invoke([SystemMessage(content=prompt)])
     
     if "信息已完整" in response.content:
-        return {"info_completed": True}
+        return {
+            "info_completed": True,
+            "full_info": conversation_history
+        }
     
     user_answer = interrupt({
         'question': response.content,

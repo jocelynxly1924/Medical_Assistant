@@ -9,6 +9,21 @@ from nodes.nodes import (intent_recognition, info_completion, warning,
 from tools.get_rag_huatuo_qa import get_rag_qa_tool
 from tools.get_medicine_info import get_medicine_info_tool
 from router.routers import router_to_info_collection, router_after_info_completion, router_agent_to_tools
+from tools.redis_history import save_conversation_history
+
+def save_history_node(state: PublicState):
+    """
+    在图执行完成后保存对话历史到Redis
+    只保存提炼后的用户查询问题（query_refined）
+    """
+    user_id = state.get('user_id', '')
+    query_refined = state.get('query_refined', '')
+    
+    if user_id and query_refined:
+        save_conversation_history(user_id, query_refined)
+        print(f"已保存用户 {user_id} 的历史查询信息")
+    
+    return {}
 
 def get_graph():
     tools = [get_rag_qa_tool, get_medicine_info_tool]
@@ -22,6 +37,7 @@ def get_graph():
     graph.add_node('info_refinement', info_refinement)
     graph.add_node('retrieval_and_answer_agent', info_retrieval_and_answer_generation_agent)
     graph.add_node("tools", tool_node)
+    graph.add_node("save_history", save_history_node)
 
     graph.add_edge(START, 'intent_recognition')
     graph.add_conditional_edges('intent_recognition', router_to_info_collection)
@@ -30,6 +46,7 @@ def get_graph():
     graph.add_conditional_edges('retrieval_and_answer_agent', router_agent_to_tools)
     graph.add_edge('tools', 'retrieval_and_answer_agent')
     graph.add_edge('warning', END)
+    graph.add_edge('save_history', END)
 
     memory = MemorySaver()
     app = graph.compile(checkpointer=memory)

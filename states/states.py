@@ -10,3 +10,4 @@ class PublicState(MessagesState):
     rag_times: int = 0
     web_times: int = 0
     source: str = ""
+    user_id: str = ""

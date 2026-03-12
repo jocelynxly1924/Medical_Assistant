@@ -15,8 +15,8 @@ def router_after_info_completion(state: PublicState) -> Literal["info_refinement
         return "info_refinement"
     return "info_completion"
 
-def router_agent_to_tools(state: PublicState) -> Literal["tools", END]:
+def router_agent_to_tools(state: PublicState) -> Literal["tools", "save_history"]:
     last_message = state["messages"][-1]
     if last_message.tool_calls:
         return "tools"
-    return END
+    return "save_history"
