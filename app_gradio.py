@@ -3,6 +3,8 @@ import uuid
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command
 from graph_draft import get_graph
+import time
+# from gradio import ShowProgress
 
 # 初始化图应用
 graph_app = get_graph()
@@ -22,8 +24,8 @@ def chat_with_assistant(message, history):
     # 先把用户消息添加到历史
     history = history or []
     history.append({"role": "user", "content": message})
-    yield history, ""
-    print("历史：", history)
+    # yield history, ""  # 这句虽然能让输出的消息实时显示，但是会让processing&加载时间模块失效。
+    # print("历史：", history)
 
     try:
         # 获取当前状态
@@ -61,10 +63,9 @@ def chat_with_assistant(message, history):
                         if isinstance(interrupt_data, dict):
                             question = interrupt_data.get('question', '请提供更多信息')
 
-                            # 修改: 模拟流式输出显示追问
+                            # ***模拟流式输出显示追问***
                             history.append({"role": "assistant", "content": ""})
                             accumulated_response = ""
-
                             # 逐字显示追问（模拟流式效果）
                             for char in question:
                                 accumulated_response += char
@@ -72,22 +73,10 @@ def chat_with_assistant(message, history):
                                 yield history, ""
                                 import time
                                 time.sleep(0.02)  # 控制显示速度
+                            yield history, ""
+                            return
 
-                            yield history, ""
-                            return
-                        else:
-                            question = str(interrupt_data) if interrupt_data else '请提供更多信息'
-                            # 同样的流式显示处理
-                            history.append({"role": "assistant", "content": ""})
-                            accumulated_response = ""
-                            for char in question:
-                                accumulated_response += char
-                                history[-1]["content"] = accumulated_response
-                                yield history, ""
-                                import time
-                                time.sleep(0.03)
-                            yield history, ""
-                            return
+            # 兜底
             history.append({"role": "assistant", "content": "请提供更多信息"})
             yield history, ""
             return
@@ -103,7 +92,7 @@ def chat_with_assistant(message, history):
         # 对话结束，重置thread_id
         thread_id = str(uuid.uuid4())
 
-        # 修改: 流式显示最终回答
+        # ***流式显示最终回答***
         history.append({"role": "assistant", "content": ""})
         accumulated_response = ""
         for char in ai_response:
@@ -135,7 +124,7 @@ with gr.Blocks(title="医疗助手") as demo:
     chatbot = gr.Chatbot(
         label="对话",
         height=500,
-        show_label=False
+        show_label=False,
     )
 
     with gr.Row():
@@ -153,11 +142,23 @@ with gr.Blocks(title="医疗助手") as demo:
 
     # 设置交互逻辑
     # 返回值同时更新聊天框和输入框（输入框清空）
-    user_input.submit(chat_with_assistant, [user_input, chatbot], [chatbot, user_input])
-    send_btn.click(chat_with_assistant, [user_input, chatbot], [chatbot, user_input])
+    user_input.submit(
+        fn=chat_with_assistant,
+        inputs=[user_input, chatbot],
+        outputs=[chatbot, user_input],
+        queue=True,  # 启用队列
+        show_progress="full"  # 显示完整进度
+    )
+    send_btn.click(
+        chat_with_assistant,
+        [user_input, chatbot],
+        [chatbot, user_input],
+        queue=True,
+        show_progress = "full")
     # 重置按钮清空对话和输入框
     reset_btn.click(reset_conversation, None, [chatbot, user_input])
 
 # 启动应用
 if __name__ == "__main__":
-    demo.launch(server_port=7860)
+    demo.queue(default_concurrency_limit=1, )
+    demo.launch(server_port=7868, share=False)  # share=False 本地运行
