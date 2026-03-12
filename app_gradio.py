@@ -14,29 +14,16 @@ thread_id = str(uuid.uuid4())
 def chat_with_assistant(message, history):
     """
     与医疗助手对话的核心函数
-
-    参数:
-        message: 用户当前输入的消息
-        history: 对话历史（Gradio自动维护，格式为消息列表）
-
-    返回:
-        tuple: (更新后的对话历史, 清空了的输入框)
     """
     global thread_id
 
-    # 配置：使用thread_id来区分不同的对话会话
     config = {"configurable": {"thread_id": thread_id}}
 
     # 先把用户消息添加到历史
     history = history or []
     history.append({"role": "user", "content": message})
-
-    # 立即返回用户消息，让界面先显示用户输入
-    yield history, ""  # yield：生成器，逐步输出内容
-    print("历史：",history)
-    # 使用yield的原因：
-    # 先显示用户消息：yield history, "" ：history → 更新对话区域，显示用户刚发的消息；“”：清空对话框
-    # 再逐步生成回复：后面还有代码会继续 yield，把助手的回复逐字或逐段地显示出来
+    yield history, ""
+    print("历史：", history)
 
     try:
         # 获取当前状态
@@ -45,6 +32,7 @@ def chat_with_assistant(message, history):
         # 判断是否需要继续之前的对话（有中断点）还是开始新对话
         if state.next:
             # 有中断点，说明是在等待用户回答问题
+            # 修改: 处理流式响应
             response = graph_app.invoke(Command(resume=message), config=config)
         else:
             # 新对话，创建新的消息
@@ -53,14 +41,14 @@ def chat_with_assistant(message, history):
                 config=config
             )
 
-        # 检测高风险词汇，如果检测到则重置对话
+        # 检测高风险词汇
         if response.get('high_risk_words'):
-            thread_id = str(uuid.uuid4())  # 重置thread_id
+            thread_id = str(uuid.uuid4())
             history.append({"role": "assistant", "content": "⚠️ 检测到可能存在高风险情况，建议您及时线下就医！"})
             yield history, ""
             return
 
-        # 获取当前状态，检查是否还有中断点（需要更多信息）
+        # 获取当前状态，检查是否还有中断点
         current_state = graph_app.get_state(config)
 
         if current_state.next:
@@ -69,39 +57,63 @@ def chat_with_assistant(message, history):
             if tasks:
                 for task in tasks:
                     if hasattr(task, 'interrupts') and task.interrupts:
-                        # 从中断数据中获取问题
                         interrupt_data = task.interrupts[0].value
                         if isinstance(interrupt_data, dict):
                             question = interrupt_data.get('question', '请提供更多信息')
+
+                            # 修改: 模拟流式输出显示追问
+                            history.append({"role": "assistant", "content": ""})
+                            accumulated_response = ""
+
+                            # 逐字显示追问（模拟流式效果）
+                            for char in question:
+                                accumulated_response += char
+                                history[-1]["content"] = accumulated_response
+                                yield history, ""
+                                import time
+                                time.sleep(0.02)  # 控制显示速度
+
+                            yield history, ""
+                            return
                         else:
                             question = str(interrupt_data) if interrupt_data else '请提供更多信息'
-                        history.append({"role": "assistant", "content": question})
-                        yield history, ""
-                        return
+                            # 同样的流式显示处理
+                            history.append({"role": "assistant", "content": ""})
+                            accumulated_response = ""
+                            for char in question:
+                                accumulated_response += char
+                                history[-1]["content"] = accumulated_response
+                                yield history, ""
+                                import time
+                                time.sleep(0.03)
+                            yield history, ""
+                            return
             history.append({"role": "assistant", "content": "请提供更多信息"})
             yield history, ""
             return
 
         # 对话完成，获取最终回复
         if response.get('messages'):
-            print('huifu',response)
+            print('回复', response)
             last_message = response['messages'][-1]
             ai_response = last_message.content if hasattr(last_message, 'content') else str(last_message)
-            # source_message = response['messages'][-1]
-            # source_response = source_message.content
         else:
             ai_response = '处理完成'
-            # source_response =''
 
-            # 对话结束，重置thread_id以便下次新对话
+        # 对话结束，重置thread_id
         thread_id = str(uuid.uuid4())
 
-        history.append({"role": "assistant", "content": ai_response})
-        yield history, ""
-        print("历史结束",history)
+        # 修改: 流式显示最终回答
+        history.append({"role": "assistant", "content": ""})
+        accumulated_response = ""
+        for char in ai_response:
+            accumulated_response += char
+            history[-1]["content"] = accumulated_response
+            yield history, ""
+            import time
+            time.sleep(0.02)  # 控制显示速度
 
-        # history.append({"role": "assistant", "content": source_response})
-        # yield history, ""
+        print("历史结束", history)
 
     except Exception as e:
         history.append({"role": "assistant", "content": f"处理出错: {str(e)}"})

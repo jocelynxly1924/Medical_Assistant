@@ -61,17 +61,6 @@ def info_completion(state: PublicState):
         'messages': [response]
     }
 
-# def info_refinement(state: PublicState):
-#     history = state['full_info']
-#     prompt = template_summarization.format(history=history)
-#     summary = llm.invoke(prompt).content
-#
-#     print("您的输入信息汇总：\n", summary)
-#
-#     return {
-#         'messages': [HumanMessage(content=summary)],
-#         'query_refined': summary
-#     }
 
 def info_refinement(state: PublicState):
     messages = state["messages"]
