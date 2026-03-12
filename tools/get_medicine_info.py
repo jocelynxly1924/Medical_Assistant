@@ -188,7 +188,7 @@ def get_first_drug_info(search_url):
     # 将content_dict存入info_dict
     info_dict['content'] = content_dict
 
-    source = f'————————————————————————————————————\n\n数据来源：中国医药信息查询平台。链接：{drug_url}'
+    source = f'————————————————————————————————————\n\n数据来源：中国医药信息查询平台\n链接：{drug_url}'
     info_dict['source'] = source
 
     # print(info_dict)

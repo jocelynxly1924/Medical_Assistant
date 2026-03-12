@@ -48,10 +48,66 @@ def chat_with_assistant(message, history):
             response = graph_app.invoke(Command(resume=message), config=config)
         else:
             # 新对话，创建新的消息
-            response = graph_app.invoke(
+            # 使用stream模式获取实时输出
+            assistant_response = ""
+            thinking_content = ""
+            action_content = ""
+            observation_content = ""
+            source_content = ""
+            answer_started = False
+            
+            # 流式处理图的执行
+            for chunk in graph_app.stream(
                 {"messages": [HumanMessage(content=message)]},
-                config=config
-            )
+                config=config,
+                stream_mode="updates"
+            ):
+                # 处理每个节点的输出
+                for node_name, node_output in chunk.items():
+                    if node_name == 'retrieval_and_answer_agent':
+                        # 检查输出中是否有消息
+                        if node_output.get('messages'):
+                            last_message = node_output['messages'][-1]
+                            if hasattr(last_message, 'content'):
+                                content = last_message.content
+                                # 处理ReAct格式的内容
+                                lines = content.split('\n')
+                                for i, line in enumerate(lines):
+                                    line = line.strip()
+                                    if line.startswith('思考：'):
+                                        thinking_content = f"🤔 {line}"
+                                        history.append({"role": "assistant", "content": thinking_content})
+                                        yield history, ""
+                                    elif line.startswith('行动：'):
+                                        action_content = f"⚡ {line}"
+                                        history.append({"role": "assistant", "content": action_content})
+                                        yield history, ""
+                                    elif line.startswith('观察：'):
+                                        observation_content = f"👁️ {line}"
+                                        history.append({"role": "assistant", "content": observation_content})
+                                        yield history, ""
+                                    elif line.startswith('🔍 查询：'):
+                                        query_content = line
+                                        history.append({"role": "assistant", "content": query_content})
+                                        yield history, ""
+                                    # 不再单独处理数据来源，因为已经在最终回答后添加
+                                    elif line.startswith('回答：'):
+                                        answer_started = True
+                                        answer_content = line[3:].strip()
+                                        # 最终回答只在所有内容之后显示
+                                        final_answer = f"💬 最终回答：\n{answer_content}"
+                                    elif line and answer_started:
+                                        # 继续添加回答内容，包括数据来源
+                                        final_answer += f"\n{line}"
+                
+                # 在所有内容处理完成后，添加最终回答
+                if answer_started:
+                    history.append({"role": "assistant", "content": final_answer})
+                    yield history, ""
+
+            # 获取最终状态
+            final_state = graph_app.get_state(config)
+            response = final_state.values
 
         # 检测高风险词汇，如果检测到则重置对话
         if response.get('high_risk_words'):
@@ -83,21 +139,20 @@ def chat_with_assistant(message, history):
             return
 
         # 对话完成，获取最终回复
-        if response.get('messages'):
-            print('huifu',response)
-            last_message = response['messages'][-1]
-            ai_response = last_message.content if hasattr(last_message, 'content') else str(last_message)
-            # source_message = response['messages'][-1]
-            # source_response = source_message.content
-        else:
-            ai_response = '处理完成'
-            # source_response =''
+        # 注意：最终回答和数据来源已经在流式处理中添加，不需要再次添加
+        # if response.get('messages'):
+        #     print('huifu',response)
+        #     last_message = response['messages'][-1]
+        #     ai_response = last_message.content if hasattr(last_message, 'content') else str(last_message)
+        # else:
+        #     ai_response = '处理完成'
 
-            # 对话结束，重置thread_id以便下次新对话
+        # 对话结束，重置thread_id以便下次新对话
         thread_id = str(uuid.uuid4())
 
-        history.append({"role": "assistant", "content": ai_response})
-        yield history, ""
+        # 不需要再次添加最终回答，因为已经在流式处理中添加了
+        # history.append({"role": "assistant", "content": ai_response})
+        # yield history, ""
         print("历史结束",history)
 
         # history.append({"role": "assistant", "content": source_response})
