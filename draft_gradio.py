@@ -210,9 +210,9 @@ demo = gr.ChatInterface(
     description="### 智能健康咨询助手",
     # type="messages",  # 使用 messages 格式
     examples=[
-        "我最近总是头痛，该怎么办？",
-        "感冒了应该吃什么药？",
-        "发烧到多少度需要去医院？",
+        "疾病信息咨询",
+        "症状诊断",
+        "药品信息查询",
     ],
     cache_examples=False,
     concurrency_limit=1,

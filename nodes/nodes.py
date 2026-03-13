@@ -52,16 +52,21 @@ def info_completion(state: PublicState):
     stage = state.get("info_completion_stage", "generate")
     
     if stage == "generate":
-        # 阶段1：生成问题（使用流式LLM）
+        # 阶段1：生成问题
         prompt = template_info_completion.format(intent=intent, history=conversation_history)
         
+        # 先使用非流式LLM判断是否信息完整
+        full_response = llm.invoke([SystemMessage(content=prompt)]).content
+        
+        if "信息已完整" in full_response:
+            # 信息已完整，直接返回，不进行流式输出
+            return {"info_completed": True}
+        
+        # 信息不完整，需要追问，进行流式输出
         full_response = ""
         for chunk in llm_streaming.stream([SystemMessage(content=prompt)]):
             if chunk.content:
                 full_response += chunk.content
-        
-        if "信息已完整" in full_response:
-            return {"info_completed": True}
         
         # 保存问题，进入下一阶段
         return {
