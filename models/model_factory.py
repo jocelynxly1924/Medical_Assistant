@@ -12,7 +12,7 @@ def get_embedding_client(model_name='bge-m3', organization='ollama'):
     else:
         return ValueError(f'{organization} is not supported!')
 
-def get_llm_client(model_name, organization='dashscope'):
+def get_llm_client(model_name, organization='dashscope',streaming=False):
     if organization == 'ollama':
         from langchain_ollama import OllamaLLM
         return OllamaLLM(model='qwen2.5:7b-instruct-q4_K_M')
@@ -20,6 +20,7 @@ def get_llm_client(model_name, organization='dashscope'):
         return ChatOpenAI(model = model_name,
                       api_key=os.environ['DASHSCOPE_API_KEY_XLY'],
                       base_url='https://dashscope.aliyuncs.com/compatible-mode/v1',
+                      streaming=streaming,
                       )
 
 if __name__ == '__main__':

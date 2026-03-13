@@ -13,7 +13,10 @@ import re
 
 tool_list = [get_medicine_info_tool, get_rag_qa_tool]
 llm = get_llm_client(model_name='qwen3-max')
+llm_streaming = get_llm_client(model_name='qwen3-max', streaming=True)
 llm_with_tools = llm.bind_tools(tool_list)
+llm_with_tools_streaming = llm_streaming.bind_tools(tool_list)
+
 
 def warning(state: PublicState):
     return {
@@ -21,15 +24,17 @@ def warning(state: PublicState):
         'high_risk_words': True
     }
 
+
 def intent_recognition(state: PublicState):
-    print("开始状态：",state)
+    print("开始状态：", state)
     user_message = state["messages"][-1].content
     system_prompt = template_intent_recognition_lite.format(query=user_message)
     intent = llm.invoke([SystemMessage(content=system_prompt)]).content
-    
+    print("[node]意图识别结果：", intent)
+
     if input_detection(intent, user_message):
         return {'high_risk_words': True}
-    
+
     return {
         "query": user_message,
         "intent": intent,
@@ -38,60 +43,128 @@ def intent_recognition(state: PublicState):
         'web_times': 0
     }
 
+# def info_completion(state: PublicState):
+#     conversation_history = state.get("full_info", "")
+#     intent = state.get('intent', '')
+#
+#     prompt = template_info_completion.format(intent=intent, history=conversation_history)
+#
+#     full_response = ""
+#     for chunk in llm_streaming.stream([SystemMessage(content=prompt)]):
+#         if chunk.content:
+#             full_response += chunk.content
+#
+#     if "信息已完整" in full_response:
+#         return {"info_completed": True}
+#
+#     user_answer = interrupt({
+#         'question': full_response,
+#         'full_info': conversation_history + f"助手：{full_response}\n"
+#     })
+#
+#     if input_detection(intent, user_answer):
+#         return {'high_risk_words': True}
+#
+#     return {
+#         'full_info': conversation_history + f"助手：{full_response}\n用户：{user_answer}\n",
+#         'messages': [AIMessage(content=full_response)]
+#     }
+
 def info_completion(state: PublicState):
     conversation_history = state.get("full_info", "")
     intent = state.get('intent', '')
-    
+
     prompt = template_info_completion.format(intent=intent, history=conversation_history)
-    response = llm.invoke([SystemMessage(content=prompt)])
-    
-    if "信息已完整" in response.content:
+
+    full_response = ""
+    for chunk in llm_streaming.stream([SystemMessage(content=prompt)]):
+        if chunk.content:
+            full_response += chunk.content
+            # 这里可以实时输出，但在中断场景下，Gradio会缓存这些输出
+            # 所以我们在节点内部不处理输出，只累积内容
+
+    if "信息已完整" in full_response:
         return {"info_completed": True}
-    
+
+    # 中断，但不要在中断前输出内容，让前端处理流式输出
     user_answer = interrupt({
-        'question': response.content,
-        'full_info': conversation_history + f"助手：{response.content}\n"
+        'question': full_response,  # 这里保存完整的问题，让前端显示
+        'full_info': conversation_history + f"助手：{full_response}\n"
     })
-    
+
     if input_detection(intent, user_answer):
         return {'high_risk_words': True}
-    
+
     return {
-        'full_info': conversation_history + f"助手：{response.content}\n用户：{user_answer}\n",
-        'messages': [response]
+        'full_info': conversation_history + f"助手：{full_response}\n用户：{user_answer}\n",
+        'messages': [AIMessage(content=full_response)]  # 保存消息到状态
     }
+
+# async def info_completion(state: PublicState):
+#     conversation_history = state.get("full_info", "")
+#     intent = state.get('intent', '')
+#
+#     prompt = template_info_completion.format(intent=intent, history=conversation_history)
+#
+#     full_response = ""
+#     async for chunk in llm_streaming.astream([SystemMessage(content=prompt)]):
+#         if chunk.content:
+#             full_response += chunk.content
+#
+#     if "信息已完整" in full_response:
+#         return {"info_completed": True}
+#
+#     user_answer = interrupt({
+#         'question': full_response,
+#         'full_info': conversation_history + f"助手：{full_response}\n"
+#     })
+#
+#     if input_detection(intent, user_answer):
+#         return {'high_risk_words': True}
+#
+#     return {
+#         'full_info': conversation_history + f"助手：{full_response}\n用户：{user_answer}\n",
+#         'messages': [AIMessage(content=full_response)]
+#     }
 
 
 def info_refinement(state: PublicState):
     messages = state["messages"]
-    # print("消息提炼", state)
     if len(messages) == 1:
-        print("仅一个消息，无需提炼")
-        return{'query_refined': state["query"]}
+        # 仅一个消息，无需提炼
+        return {'query_refined': state["query"]}
     else:
         history = state['full_info']
-        # print("总结前：\n",history)
-        prompt = template_summarization.format(history = history)
-        response = llm.invoke(prompt).content
-        print("您的输入信息汇总：\n",response)
+        prompt = template_summarization.format(history=history)
+
+        # 使用同步的LLM调用
+        full_response = llm.invoke(prompt).content
+
         return {
-            'messages': [RemoveMessage(id=m.id)for m in messages] + [HumanMessage(content=response)],
-            'query_refined': response
+            'messages': [RemoveMessage(id=m.id) for m in messages] + [HumanMessage(content=full_response)],
+            'query_refined': full_response
         }
 
-def info_retrieval_and_answer_generation_agent(state: PublicState):
+
+async def info_retrieval_and_answer_generation_agent(state: PublicState):
     rag_times = state.get('rag_times', 0)
     web_times = state.get('web_times', 0)
-    # source = ""
-    
+
     if rag_times < 2 and web_times < 2:
         prompt = template_retrieval_and_answer
         print('我的状态：', state)
-        response = llm_with_tools.invoke([SystemMessage(content=prompt)] + state['messages'])
+
+        response = await llm_with_tools.ainvoke([SystemMessage(content=prompt)] + state['messages'])
     else:
         prompt = template_final_answer
-        response = llm.invoke([SystemMessage(content=prompt)] + state['messages'])
-    
+
+        full_response = ""
+        async for chunk in llm_streaming.astream([SystemMessage(content=prompt)] + state['messages']):
+            if chunk.content:
+                full_response += chunk.content
+
+        response = AIMessage(content=full_response)
+
     if response.tool_calls:
         for tool_call in response.tool_calls:
             if tool_call['name'] == 'get_medicine_info_tool':
@@ -115,7 +188,7 @@ def info_retrieval_and_answer_generation_agent(state: PublicState):
                             source = source.replace('\\n', '\n')
                             print('提取到的 source (前100字符):', source[:100])
                             break
-                    
+
                     source_start = tool_message_content.find('"source": "')
                     if source_start != -1:
                         source_start += len('"source": "')
@@ -128,11 +201,11 @@ def info_retrieval_and_answer_generation_agent(state: PublicState):
                 except Exception as e:
                     print(f"解析 ToolMessage content 失败: {e}")
                     continue
-        
+
         if source:
             response.content = response.content + '\n\n' + source
         print(f"\n最终回答：\n\n{response.content}")
-        print("结束状态：",state)
+        print("结束状态：", state)
 
     return {
         'messages': [response],

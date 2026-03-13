@@ -1,4 +1,5 @@
 from langgraph.graph import MessagesState
+from typing import AsyncGenerator
 
 class PublicState(MessagesState):
     query: str = ""
@@ -10,3 +11,5 @@ class PublicState(MessagesState):
     rag_times: int = 0
     web_times: int = 0
     source: str = ""
+    streaming_content: str = ""
+

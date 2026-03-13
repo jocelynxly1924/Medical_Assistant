@@ -3,7 +3,10 @@ from langgraph.constants import END
 
 from states.states import PublicState
 
-def router_to_info_collection(state: PublicState) -> Literal["info_completion", "warning"]:
+def router_to_info_collection(state: PublicState) -> Literal["info_completion", "warning", END]:
+    if state.get("intent")=="其他类别":
+        print("[router]去end：", state)
+        return END
     if state.get("high_risk_words"):
         return "warning"
     return "info_completion"
