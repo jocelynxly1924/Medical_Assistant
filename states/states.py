@@ -12,4 +12,6 @@ class PublicState(MessagesState):
     web_times: int = 0
     source: str = ""
     streaming_content: str = ""
+    pending_question: str = ""
+    info_completion_stage: str = "generate"
 

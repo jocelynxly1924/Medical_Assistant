@@ -9,6 +9,7 @@ from tools.high_risk_word_detection import input_detection
 from tools.get_medicine_info import get_medicine_info_tool
 from tools.get_rag_huatuo_qa import get_rag_qa_tool
 import json
+import uuid
 import re
 
 tool_list = [get_medicine_info_tool, get_rag_qa_tool]
@@ -43,6 +44,49 @@ def intent_recognition(state: PublicState):
         'web_times': 0
     }
 
+def info_completion(state: PublicState):
+    conversation_history = state.get("full_info", "")
+    intent = state.get('intent', '')
+    
+    # 检查当前阶段（状态机模式）
+    stage = state.get("info_completion_stage", "generate")
+    
+    if stage == "generate":
+        # 阶段1：生成问题（使用流式LLM）
+        prompt = template_info_completion.format(intent=intent, history=conversation_history)
+        
+        full_response = ""
+        for chunk in llm_streaming.stream([SystemMessage(content=prompt)]):
+            if chunk.content:
+                full_response += chunk.content
+        
+        if "信息已完整" in full_response:
+            return {"info_completed": True}
+        
+        # 保存问题，进入下一阶段
+        return {
+            "pending_question": full_response,
+            "info_completion_stage": "interrupt"
+        }
+    
+    elif stage == "interrupt":
+        # 阶段2：中断等待用户输入
+        full_response = state.get("pending_question", "")
+        user_answer = interrupt({
+            'question': full_response,
+            'full_info': conversation_history + f"助手：{full_response}\n"
+        })
+        
+        if input_detection(intent, user_answer):
+            return {'high_risk_words': True}
+        
+        # 恢复后更新对话历史，重置阶段
+        return {
+            'full_info': conversation_history + f"助手：{full_response}\n用户：{user_answer}\n",
+            'pending_question': "",
+            'info_completion_stage': "generate"
+        }
+
 # def info_completion(state: PublicState):
 #     conversation_history = state.get("full_info", "")
 #     intent = state.get('intent', '')
@@ -53,12 +97,15 @@ def intent_recognition(state: PublicState):
 #     for chunk in llm_streaming.stream([SystemMessage(content=prompt)]):
 #         if chunk.content:
 #             full_response += chunk.content
+#             # 这里可以实时输出，但在中断场景下，Gradio会缓存这些输出
+#             # 所以我们在节点内部不处理输出，只累积内容
 #
 #     if "信息已完整" in full_response:
 #         return {"info_completed": True}
 #
+#     # 中断，但不要在中断前输出内容，让前端处理流式输出
 #     user_answer = interrupt({
-#         'question': full_response,
+#         'question': full_response,  # 这里保存完整的问题，让前端显示
 #         'full_info': conversation_history + f"助手：{full_response}\n"
 #     })
 #
@@ -67,38 +114,8 @@ def intent_recognition(state: PublicState):
 #
 #     return {
 #         'full_info': conversation_history + f"助手：{full_response}\n用户：{user_answer}\n",
-#         'messages': [AIMessage(content=full_response)]
+#         'messages': [AIMessage(content=full_response)]  # 保存消息到状态
 #     }
-
-def info_completion(state: PublicState):
-    conversation_history = state.get("full_info", "")
-    intent = state.get('intent', '')
-
-    prompt = template_info_completion.format(intent=intent, history=conversation_history)
-
-    full_response = ""
-    for chunk in llm_streaming.stream([SystemMessage(content=prompt)]):
-        if chunk.content:
-            full_response += chunk.content
-            # 这里可以实时输出，但在中断场景下，Gradio会缓存这些输出
-            # 所以我们在节点内部不处理输出，只累积内容
-
-    if "信息已完整" in full_response:
-        return {"info_completed": True}
-
-    # 中断，但不要在中断前输出内容，让前端处理流式输出
-    user_answer = interrupt({
-        'question': full_response,  # 这里保存完整的问题，让前端显示
-        'full_info': conversation_history + f"助手：{full_response}\n"
-    })
-
-    if input_detection(intent, user_answer):
-        return {'high_risk_words': True}
-
-    return {
-        'full_info': conversation_history + f"助手：{full_response}\n用户：{user_answer}\n",
-        'messages': [AIMessage(content=full_response)]  # 保存消息到状态
-    }
 
 # async def info_completion(state: PublicState):
 #     conversation_history = state.get("full_info", "")
