@@ -211,7 +211,7 @@ demo = gr.ChatInterface(
     # type="messages",  # 使用 messages 格式
     examples=[
         "疾病信息咨询",
-        "症状诊断",
+        "常见症状诊断",
         "药品信息查询",
     ],
     cache_examples=False,
@@ -224,7 +224,7 @@ demo = gr.ChatInterface(
 with demo:
     gr.Markdown("---")  # 添加分隔线
     with gr.Row():
-        reset_btn = gr.Button("🔄 重置对话", variant="secondary", size="sm")
+        reset_btn = gr.Button("🔄 重置对话", variant="secondary", size="md")
 
     # 绑定重置功能
     reset_btn.click(

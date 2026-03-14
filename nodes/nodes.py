@@ -29,12 +29,23 @@ def warning(state: PublicState):
 def intent_recognition(state: PublicState):
     print("开始状态：", state)
     user_message = state["messages"][-1].content
+
     system_prompt = template_intent_recognition_lite.format(query=user_message)
     intent = llm.invoke([SystemMessage(content=system_prompt)]).content
     print("[node]意图识别结果：", intent)
 
     if input_detection(intent, user_message):
         return {'high_risk_words': True}
+
+    # 移除上一次执行图残留的human message
+    if state.get('intent', '') == '其他类别':
+        return {'messages': [RemoveMessage(id=state['messages'][-2].id)],
+                "query": user_message,
+                "intent": intent,
+                "full_info": f"用户：{user_message}\n",
+                'rag_times': 0,
+                'web_times': 0
+                }
 
     return {
         "query": user_message,
@@ -85,75 +96,23 @@ def info_completion(state: PublicState):
         if input_detection(intent, user_answer):
             return {'high_risk_words': True}
         
-        # 恢复后更新对话历史，重置阶段
+        # 恢复后更新对话历史，添加AI问题和用户回答到messages，重置阶段
         return {
             'full_info': conversation_history + f"助手：{full_response}\n用户：{user_answer}\n",
             'pending_question': "",
-            'info_completion_stage': "generate"
+            'info_completion_stage': "generate",
+            'messages': [
+                AIMessage(content=full_response),
+                HumanMessage(content=user_answer)
+            ]
         }
-
-# def info_completion(state: PublicState):
-#     conversation_history = state.get("full_info", "")
-#     intent = state.get('intent', '')
-#
-#     prompt = template_info_completion.format(intent=intent, history=conversation_history)
-#
-#     full_response = ""
-#     for chunk in llm_streaming.stream([SystemMessage(content=prompt)]):
-#         if chunk.content:
-#             full_response += chunk.content
-#             # 这里可以实时输出，但在中断场景下，Gradio会缓存这些输出
-#             # 所以我们在节点内部不处理输出，只累积内容
-#
-#     if "信息已完整" in full_response:
-#         return {"info_completed": True}
-#
-#     # 中断，但不要在中断前输出内容，让前端处理流式输出
-#     user_answer = interrupt({
-#         'question': full_response,  # 这里保存完整的问题，让前端显示
-#         'full_info': conversation_history + f"助手：{full_response}\n"
-#     })
-#
-#     if input_detection(intent, user_answer):
-#         return {'high_risk_words': True}
-#
-#     return {
-#         'full_info': conversation_history + f"助手：{full_response}\n用户：{user_answer}\n",
-#         'messages': [AIMessage(content=full_response)]  # 保存消息到状态
-#     }
-
-# async def info_completion(state: PublicState):
-#     conversation_history = state.get("full_info", "")
-#     intent = state.get('intent', '')
-#
-#     prompt = template_info_completion.format(intent=intent, history=conversation_history)
-#
-#     full_response = ""
-#     async for chunk in llm_streaming.astream([SystemMessage(content=prompt)]):
-#         if chunk.content:
-#             full_response += chunk.content
-#
-#     if "信息已完整" in full_response:
-#         return {"info_completed": True}
-#
-#     user_answer = interrupt({
-#         'question': full_response,
-#         'full_info': conversation_history + f"助手：{full_response}\n"
-#     })
-#
-#     if input_detection(intent, user_answer):
-#         return {'high_risk_words': True}
-#
-#     return {
-#         'full_info': conversation_history + f"助手：{full_response}\n用户：{user_answer}\n",
-#         'messages': [AIMessage(content=full_response)]
-#     }
 
 
 def info_refinement(state: PublicState):
     messages = state["messages"]
     if len(messages) == 1:
         # 仅一个消息，无需提炼
+        print("仅一个消息，无需提炼")
         return {'query_refined': state["query"]}
     else:
         history = state['full_info']
