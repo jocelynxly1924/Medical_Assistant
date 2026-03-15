@@ -138,7 +138,7 @@ async def chat_with_assistant(message, history):
                     current_running_node = node_name
                     current_stream = ""  # 中断恢复后重置流式内容
                     has_stream_output = False
-                    print(f"开始节点: {node_name}")
+                    print(f"[web]开始节点: {node_name}")
 
             # 流式输出 - 只处理当前运行节点的输出，避免叠加
             elif kind == "on_chat_model_stream":
@@ -152,7 +152,7 @@ async def chat_with_assistant(message, history):
             # 节点结束 - 清理状态
             elif kind == "on_chain_end":
                 if node_name == current_running_node:
-                    print(f"结束节点: {node_name}")
+                    print(f"[web]结束节点: {node_name}")
                     current_running_node = None
 
                 # 处理警告节点

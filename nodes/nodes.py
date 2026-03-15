@@ -42,14 +42,23 @@ def intent_recognition(state: PublicState):
         return {'messages': [RemoveMessage(id=state['messages'][-2].id)],
                 "query": user_message,
                 "intent": intent,
+                'info_completed': False,
+                'streaming_content': "",
+                'pending_question':  "",
+                'info_completion_stage': "generate",
                 "full_info": f"用户：{user_message}\n",
                 'rag_times': 0,
                 'web_times': 0
                 }
 
+
     return {
         "query": user_message,
         "intent": intent,
+        'info_completed': False,
+        'streaming_content': "",
+        'pending_question': "",
+        'info_completion_stage': "generate",
         "full_info": f"用户：{user_message}\n",
         'rag_times': 0,
         'web_times': 0
