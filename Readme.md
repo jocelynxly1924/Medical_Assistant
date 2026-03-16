@@ -71,7 +71,7 @@
 ### 安装依赖
 
 ```bash
-pip install flask langchain langgraph langchain-ollama langchain-openai langchain-chroma beautifulsoup4 requests
+pip install gradio langchain langgraph langchain-ollama langchain-openai langchain-chroma beautifulsoup4 requests
 ```
 
 ### 配置
