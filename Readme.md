@@ -15,8 +15,7 @@
 
 ## 技术栈
 
-- **后端**：Flask, LangGraph, LangChain
-- **前端**：HTML, CSS, JavaScript
+- **框架**：Gradio, LangGraph, LangChain
 - **模型**：Ollama (bge-m3), 通义千问 DashScope (qwen3-max)
 - **向量数据库**：ChromaDB
 - **工具**：BeautifulSoup (网页解析), Requests (网络请求)
@@ -45,8 +44,9 @@
 │   ├── __init__.py
 │   ├── get_medicine_info.py
 │   ├── get_rag_huatuo_qa.py
-│   └── high_risk_word_detection.py
-├── app.py              # Flask应用入口
+│   ├── high_risk_word_detection.py
+│   └── redis_utils/    
+├── web_gradio.py       # gradio应用入口
 ├── graph_draft.py      # LangGraph工作流定义
 ├── huatuo_to_chromadb.py # 医疗数据导入到ChromaDB
 └── Readme.md           # 项目说明文档
@@ -79,7 +79,6 @@ pip install flask langchain langgraph langchain-ollama langchain-openai langchai
 1. 安装Ollama并下载模型：
    ```bash
    ollama pull bge-m3:latest
-   ollama pull qwen2.5:7b-instruct-q4_K_M
    ```
 
 2. 设置环境变量：
@@ -95,14 +94,14 @@ pip install flask langchain langgraph langchain-ollama langchain-openai langchai
 ### 运行
 
 ```bash
-python app_gradio.py
+python web_gradio.py
 ```
 
-系统将在 `http://localhost:5001` 运行。
+系统将在 `http://localhost:7868` 运行。
 
 ## 使用指南
 
-1. 打开浏览器，访问 `http://localhost:5001`
+1. 打开浏览器，访问 `http://localhost:7868`
 2. 在输入框中输入您的医疗问题
 3. 系统会自动识别您的问题类型，并可能询问您一些关键信息
 4. 系统会从医疗知识库和药品数据库中检索相关信息

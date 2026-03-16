@@ -2,7 +2,7 @@ import gradio as gr
 import uuid
 from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.types import Command
-from graph_draft import get_graph
+from graph import get_graph
 
 graph_app = get_graph()
 
