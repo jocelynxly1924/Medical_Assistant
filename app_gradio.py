@@ -34,6 +34,8 @@ async def chat_with_assistant(message, history):
 
             if kind == "on_chain_start":
                 current_node = event.get("name", "")
+                # 当进入这三个特定节点时，准备流式输出：
+                # 在历史记录中添加一个空的助手消息；初始化流式内容缓存
                 if current_node in ["info_completion", "info_refinement", "info_retrieval_and_answer_generation_agent"]:
                     if not assistant_message_added:
                         history.append({"role": "assistant", "content": ""})
@@ -41,15 +43,22 @@ async def chat_with_assistant(message, history):
                     current_streaming_content = ""
 
             elif kind == "on_chat_model_stream":
+                # 接收模型生成的文本块（排除意图识别节点）
+                # 累积内容到current_streaming_content
+                # 实时更新历史记录中的助手消息
+                # 通过yield返回进度给前端
                 if current_node and current_node != "intent_recognition":
                     content = event["data"]["chunk"].content
                     if content:
                         current_streaming_content += content
-                        if assistant_message_added:
+                        if assistant_message_added:  # 已经添加了助手消息，则更新
                             history[-1]["content"] = current_streaming_content
                             yield history, ""
 
             elif kind == "on_chain_end":
+                # 特别处理"warning"节点：检测到高风险词汇时，立即返回警告信息
+                # 生成唯一thread_id（但未使用）
+                # 用return终止整个响应流程
                 node_name = event.get("name", "")
                 if node_name == "warning":
                     if event["data"].get("output", {}).get("high_risk_words"):
