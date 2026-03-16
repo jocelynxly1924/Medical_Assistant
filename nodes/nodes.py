@@ -8,6 +8,7 @@ from states.states import PublicState
 from tools.high_risk_word_detection import input_detection
 from tools.get_medicine_info import get_medicine_info_tool
 from tools.get_rag_huatuo_qa import get_rag_qa_tool
+from tools.redis_utils import get_latest_refined_info, save_refined_info
 import json
 import uuid
 import re
@@ -37,6 +38,13 @@ def intent_recognition(state: PublicState):
     if input_detection(intent, user_message):
         return {'high_risk_words': True}
 
+    query_history = get_latest_refined_info()
+    
+    if query_history:
+        full_info = f"历史信息：{query_history}\n用户：{user_message}\n"
+    else:
+        full_info = f"用户：{user_message}\n"
+
     # 移除上一次执行图残留的human message
     if state.get('intent', '') == '其他类别':
         return {'messages': [RemoveMessage(id=state['messages'][-2].id)],
@@ -46,7 +54,7 @@ def intent_recognition(state: PublicState):
                 'streaming_content': "",
                 'pending_question':  "",
                 'info_completion_stage': "generate",
-                "full_info": f"用户：{user_message}\n",
+                "full_info": full_info,
                 'rag_times': 0,
                 'web_times': 0
                 }
@@ -59,7 +67,7 @@ def intent_recognition(state: PublicState):
         'streaming_content': "",
         'pending_question': "",
         'info_completion_stage': "generate",
-        "full_info": f"用户：{user_message}\n",
+        "full_info": full_info,
         'rag_times': 0,
         'web_times': 0
     }
@@ -119,21 +127,34 @@ def info_completion(state: PublicState):
 
 def info_refinement(state: PublicState):
     messages = state["messages"]
-    if len(messages) == 1:
-        # 仅一个消息，无需提炼
-        print("仅一个消息，无需提炼")
-        return {'query_refined': state["query"]}
-    else:
-        history = state['full_info']
-        prompt = template_summarization.format(history=history)
+    # if len(messages) == 1:
+    #     print("仅一个消息，无需提炼")
+    #     query_refined = state["query"]
+    #     return {'query_refined': query_refined}
+    # else:
+    history = state['full_info']
+    prompt = template_summarization.format(history=history)
 
-        # 使用同步的LLM调用
-        full_response = llm.invoke(prompt).content
+    full_response = llm.invoke(prompt).content
 
-        return {
-            'messages': [RemoveMessage(id=m.id) for m in messages] + [HumanMessage(content=full_response)],
-            'query_refined': full_response
-        }
+    question_match = re.search(r'【问题】(.+?)(?=【信息】|$)', full_response, re.DOTALL)
+    info_match = re.search(r'【信息】(.+?)(?=【问题】|$)', full_response, re.DOTALL)
+
+    question_content = question_match.group(1).strip() if question_match else ""
+    info_content = info_match.group(1).strip() if info_match else ""
+
+    query_refined = f"{info_content}{question_content}" if info_content else question_content
+
+    if info_content:
+        save_refined_info(info_content)
+
+    print(f"[info_refinement] 解析结果 - 问题: {question_content}, 信息: {info_content}")
+    print(f"[info_refinement] query_refined: {query_refined}")
+
+    return {
+        'messages': [RemoveMessage(id=m.id) for m in messages] + [HumanMessage(content=query_refined)],
+        'query_refined': query_refined
+    }
 
 
 async def info_retrieval_and_answer_generation_agent(state: PublicState):
