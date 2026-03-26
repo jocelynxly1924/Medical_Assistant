@@ -127,23 +127,18 @@ def info_completion(state: PublicState):
 
 def info_refinement(state: PublicState):
     messages = state["messages"]
-    # if len(messages) == 1:
-    #     print("仅一个消息，无需提炼")
-    #     query_refined = state["query"]
-    #     return {'query_refined': query_refined}
-    # else:
     history = state['full_info']
     prompt = template_summarization.format(history=history)
 
     full_response = llm.invoke(prompt).content
 
     question_match = re.search(r'【问题】(.+?)(?=【信息】|$)', full_response, re.DOTALL)
-    info_match = re.search(r'【信息】(.+?)(?=【问题】|$)', full_response, re.DOTALL)
+    info_match = re.search(r'【信息】(.+?)$', full_response, re.DOTALL)
 
     question_content = question_match.group(1).strip() if question_match else ""
     info_content = info_match.group(1).strip() if info_match else ""
 
-    query_refined = f"{info_content}{question_content}" if info_content else question_content
+    query_refined = f"{info_content}\n{question_content}" if info_content else question_content
 
     if info_content:
         save_refined_info(info_content)
