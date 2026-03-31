@@ -6,6 +6,7 @@ import os
 from states.states import PublicState
 from langchain_chroma import Chroma
 from langchain_core.tools import tool
+from tools.redis_utils import get_rag_cache, set_rag_cache
 
 def get_retriever(repository_name = 'Huatuo_lite_respiratory_full'):
     embedding_client = OllamaEmbeddings(model="bge-m3:latest")
@@ -48,17 +49,24 @@ def get_rag_qa_tool(query: str):
 
     yellow = '\033[93m'
     reset = '\033[0m'
+
+    cached_result = get_rag_cache(query)
+    if cached_result:
+        print(f"{yellow}从缓存获取HuaTuo数据库结果{reset}")
+        return cached_result
+
     print(f"{yellow}正在查询HuaTuo数据库……{reset}")
 
     retriever = get_retriever(repository_name='Huatuo_lite_respiratory_full')
     docs = retriever.invoke(query)
     print(f"查询到内容：\n{docs}")
-    # get_source(docs)
     source = get_source(docs)
-    return {
-        'rag_retrieved_docs': docs,
-        'source': source
-    }
+    
+    result = {'source': source}
+    
+    set_rag_cache(query, result)
+    
+    return result
 
 if __name__=='__main__':
 

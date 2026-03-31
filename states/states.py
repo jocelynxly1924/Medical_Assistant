@@ -1,5 +1,5 @@
 from langgraph.graph import MessagesState
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Set
 
 class PublicState(MessagesState):
     query: str = ""
@@ -14,4 +14,5 @@ class PublicState(MessagesState):
     streaming_content: str = ""
     pending_question: str = ""
     info_completion_stage: str = "generate"
+    used_cache_keys: Set[str] = set()
 

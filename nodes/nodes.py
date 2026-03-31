@@ -8,7 +8,7 @@ from states.states import PublicState
 from tools.high_risk_word_detection import input_detection
 from tools.get_medicine_info import get_medicine_info_tool
 from tools.get_rag_huatuo_qa import get_rag_qa_tool
-from tools.redis_utils import get_latest_refined_info, save_refined_info
+from tools.redis_utils import get_latest_refined_info, save_refined_info, current_session_id, clear_session_used_keys
 import json
 import uuid
 import re
@@ -29,6 +29,12 @@ def warning(state: PublicState):
 
 def intent_recognition(state: PublicState):
     print("开始状态：", state)
+    
+    session_id = str(uuid.uuid4())
+    current_session_id.set(session_id)
+    clear_session_used_keys(session_id)
+    print(f"[Session] 新会话ID: {session_id}")
+    
     user_message = state["messages"][-1].content
 
     system_prompt = template_intent_recognition_lite.format(query=user_message)
@@ -179,37 +185,51 @@ async def info_retrieval_and_answer_generation_agent(state: PublicState):
                 rag_times += 1
 
     if response.content:
-        source = ''
+        sources = []
         for msg in reversed(state["messages"]):
             if isinstance(msg, ToolMessage):
                 tool_message_content = msg.content
                 print("*** ToolMessage content (前200字符):", tool_message_content[:200])
                 try:
-                    source_start = tool_message_content.find("'source': '")
-                    if source_start != -1:
-                        source_start += len("'source': '")
-                        source_end = tool_message_content.rfind("'}")
-                        if source_end != -1 and source_end > source_start:
-                            source = tool_message_content[source_start:source_end]
-                            source = source.replace('\\n', '\n')
-                            print('提取到的 source (前100字符):', source[:100])
-                            break
+                    parsed_data = json.loads(tool_message_content)
+                    
+                    if isinstance(parsed_data, dict) and 'source' in parsed_data:
+                        source = parsed_data['source']
+                        if source not in sources:
+                            sources.append(source)
+                            
+                except json.JSONDecodeError:
+                    try:
+                        source_start = tool_message_content.find("'source': '")
+                        if source_start != -1:
+                            source_start += len("'source': '")
+                            source_end = tool_message_content.rfind("'}")
+                            if source_end != -1 and source_end > source_start:
+                                source = tool_message_content[source_start:source_end]
+                                source = source.replace('\\n', '\n')
+                                if source not in sources:
+                                    sources.append(source)
+                                continue
 
-                    source_start = tool_message_content.find('"source": "')
-                    if source_start != -1:
-                        source_start += len('"source": "')
-                        source_end = tool_message_content.rfind('"}')
-                        if source_end != -1 and source_end > source_start:
-                            source = tool_message_content[source_start:source_end]
-                            source = source.replace('\\n', '\n')
-                            print('提取到的 source (前100字符):', source[:100])
-                            break
+                        source_start = tool_message_content.find('"source": "')
+                        if source_start != -1:
+                            source_start += len('"source": "')
+                            source_end = tool_message_content.rfind('"}')
+                            if source_end != -1 and source_end > source_start:
+                                source = tool_message_content[source_start:source_end]
+                                source = source.replace('\\n', '\n')
+                                if source not in sources:
+                                    sources.append(source)
+                    except Exception as e:
+                        print(f"解析 ToolMessage content 失败: {e}")
+                        continue
                 except Exception as e:
                     print(f"解析 ToolMessage content 失败: {e}")
                     continue
 
-        if source:
-            response.content = response.content + '\n\n' + source
+        if sources:
+            combined_source = '\n\n'.join(sources)
+            response.content = response.content + '\n\n' + combined_source
         print(f"\n最终回答：\n\n{response.content}")
         print("结束状态：", state)
 

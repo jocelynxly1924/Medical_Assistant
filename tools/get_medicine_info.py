@@ -5,6 +5,7 @@ import requests
 from bs4 import BeautifulSoup
 import time
 from langchain_core.tools import tool
+from tools.redis_utils import get_medicine_cache, set_medicine_cache_by_field
 
 @tool
 def get_medicine_info_tool(medicine_name: str, target_fields: List[str]):
@@ -20,21 +21,50 @@ def get_medicine_info_tool(medicine_name: str, target_fields: List[str]):
         药品的详细信息，包含药品名称和查询内容"""
     yellow = '\033[93m'
     reset = '\033[0m'
-    print(f"{yellow}正在查询药品信息……{reset}")
-    search_url = f"https://www.dayi.org.cn/search?keyword={medicine_name}&type=medical"
-    medicine_info = get_first_drug_info(search_url)
-    print('查询到结果：', medicine_info)
-    content_dict = {}
-    for field in medicine_info.get('content', {}):
-        if field in target_fields:
-            content_dict[field] = medicine_info['content'][field]
-    medicine_info_related = {
-        'name': medicine_info.get('name','None'),
-        'content': content_dict
-    }
+    
+    cached_results, missing_fields = get_medicine_cache(medicine_name, target_fields)
+    
+    merged_content = {}
+    sources = []
+    
+    if cached_results:
+        print(f"{yellow}从缓存获取药品信息{reset}")
+        for result in cached_results:
+            if 'medicine_info' in result and 'content' in result['medicine_info']:
+                merged_content.update(result['medicine_info']['content'])
+            if 'source' in result and result['source'] not in sources:
+                sources.append(result['source'])
+    
+    if missing_fields:
+        print(f"{yellow}正在查询药品信息（字段: {missing_fields}）……{reset}")
+        search_url = f"https://www.dayi.org.cn/search?keyword={medicine_name}&type=medical"
+        medicine_info = get_first_drug_info(search_url)
+        print('查询到结果：', medicine_info)
+        
+        for field in missing_fields:
+            if field in medicine_info.get('content', {}):
+                content = medicine_info['content'][field]
+                merged_content[field] = content
+                set_medicine_cache_by_field(medicine_name, field, content, medicine_info['source'])
+        
+        if medicine_info.get('source') and medicine_info['source'] not in sources:
+            sources.append(medicine_info['source'])
+    
+    if not merged_content:
+        return {
+            'medicine_info': {
+                'name': medicine_name,
+                'content': {}
+            },
+            'source': '未找到相关信息'
+        }
+    
     return {
-        'medicine_info': medicine_info_related,
-        'source': medicine_info['source']
+        'medicine_info': {
+            'name': medicine_name,
+            'content': merged_content
+        },
+        'source': sources[0] if len(sources) == 1 else '\n'.join(sources)
     }
 
 
