@@ -4,7 +4,6 @@ __pycache__/
 *.so
 .Python
 .venv/
-.env
 
 # macOS
 .DS_Store
@@ -14,6 +13,7 @@ __pycache__/
 .idea/
 *.swp
 *.swo
+.claude
 
 # Project Specific
 data/
