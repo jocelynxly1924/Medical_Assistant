@@ -19,8 +19,10 @@ def get_medicine_info_tool(medicine_name: str, target_fields: List[str]):
 
     Returns:
         药品的详细信息，包含药品名称和查询内容"""
+    start_time = time.time()
     yellow = '\033[93m'
     reset = '\033[0m'
+    cyan = '\033[96m'
     
     cached_results, missing_fields = get_medicine_cache(medicine_name, target_fields)
     
@@ -51,6 +53,9 @@ def get_medicine_info_tool(medicine_name: str, target_fields: List[str]):
             sources.append(medicine_info['source'])
     
     if not merged_content:
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"{cyan}[get_medicine_info_tool] 耗时: {elapsed_time:.2f}秒{reset}")
         return {
             'medicine_info': {
                 'name': medicine_name,
@@ -58,6 +63,10 @@ def get_medicine_info_tool(medicine_name: str, target_fields: List[str]):
             },
             'source': '未找到相关信息'
         }
+    
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    print(f"{cyan}[get_medicine_info_tool] 耗时: {elapsed_time:.2f}秒{reset}")
     
     return {
         'medicine_info': {

@@ -140,4 +140,4 @@ with demo:
     )
 if __name__ == "__main__":
     demo.queue(default_concurrency_limit=1)
-    demo.launch(server_port=7868, share=False)
+    demo.launch(server_port=7869, share=False)

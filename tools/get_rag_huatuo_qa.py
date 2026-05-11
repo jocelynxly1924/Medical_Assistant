@@ -46,13 +46,18 @@ def get_rag_qa_tool(query: str):
     Returns:
         从Huatuo医疗问答对数据库中获取的查询结果
         """
-
+    
+    start_time = time.time()
     yellow = '\033[93m'
     reset = '\033[0m'
+    cyan = '\033[96m'
 
     cached_result = get_rag_cache(query)
     if cached_result:
         print(f"{yellow}从缓存获取HuaTuo数据库结果{reset}")
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"{cyan}[get_rag_qa_tool] 耗时: {elapsed_time:.2f}秒{reset}")
         return cached_result
 
     print(f"{yellow}正在查询HuaTuo数据库……{reset}")
@@ -65,6 +70,10 @@ def get_rag_qa_tool(query: str):
     result = {'source': source}
     
     set_rag_cache(query, result)
+    
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    print(f"{cyan}[get_rag_qa_tool] 耗时: {elapsed_time:.2f}秒{reset}")
     
     return result
 
