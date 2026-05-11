@@ -1,4 +1,6 @@
 from typing import List
+import asyncio
+from functools import partial
 
 from states.states import PublicState
 import requests
@@ -7,8 +9,7 @@ import time
 from langchain_core.tools import tool
 from tools.redis_utils import get_medicine_cache, set_medicine_cache_by_field
 
-@tool
-def get_medicine_info_tool(medicine_name: str, target_fields: List[str]):
+def _get_medicine_info_tool_sync(medicine_name: str, target_fields: List[str]):
     """搜索中国医药信息查询平台，返回药品括简介、成分、功效、用法、注意事项等内容。
 
     Args:
@@ -249,6 +250,20 @@ def extract_expiry_info(expiry_title_element, drug_soup):
                 expiry_text = field_content.get_text(strip=True)
                 return expiry_text
     return None
+
+@tool
+async def get_medicine_info_tool(medicine_name: str, target_fields: List[str]):
+    """搜索中国医药信息查询平台，返回药品括简介、成分、功效、用法、注意事项等内容。
+
+    Args:
+        medicine_name: 药品名称（中文或英文）
+        target_fields: 需要查询的内容，为以下取值的子集：
+            ['介绍','成分','性状','主要功效','适应病症','临床应用及指南','规格','药理作用','药性分解/方解',
+            '用法用量','不良反应','禁忌','注意事项','药物相互作用','贮藏方法','有效期','执行标准','附注']
+
+    Returns:
+        药品的详细信息，包含药品名称和查询内容"""
+    return await asyncio.to_thread(_get_medicine_info_tool_sync, medicine_name, target_fields)
 
 if __name__ == '__main__':
     # 测试代码

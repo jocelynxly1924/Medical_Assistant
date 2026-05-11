@@ -1,18 +1,18 @@
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.constants import START, END
 from langgraph.graph import StateGraph
-from langgraph.prebuilt import ToolNode
 
 from states.states import PublicState
 from nodes.nodes import (intent_recognition, info_completion, warning,
                          info_refinement, info_retrieval_and_answer_generation_agent)
 from tools.get_rag_huatuo_qa import get_rag_qa_tool
 from tools.get_medicine_info import get_medicine_info_tool
+from tools.parallel_tool_node import ParallelToolNode
 from router.routers import router_to_info_collection, router_after_info_completion, router_agent_to_tools
 
 def get_graph():
     tools = [get_rag_qa_tool, get_medicine_info_tool]
-    tool_node = ToolNode(tools)
+    tool_node = ParallelToolNode(tools)
 
     graph = StateGraph(PublicState)
 

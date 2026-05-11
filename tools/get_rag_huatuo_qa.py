@@ -1,4 +1,6 @@
 import time
+import asyncio
+from functools import partial
 
 from langchain_core.messages import ToolMessage
 from langchain_ollama import OllamaEmbeddings
@@ -35,8 +37,7 @@ def get_source(docs):
     return source
 
 
-@tool
-def get_rag_qa_tool(query: str):
+def _get_rag_qa_tool_sync(query: str):
 
     """从Huatuo数据库中调取医疗诊断问答对，以获取疾病具体信息、症状、治疗方法、注意事项等信息。
 
@@ -76,6 +77,18 @@ def get_rag_qa_tool(query: str):
     print(f"{cyan}[get_rag_qa_tool] 耗时: {elapsed_time:.2f}秒{reset}")
     
     return result
+
+@tool
+async def get_rag_qa_tool(query: str):
+    """从Huatuo数据库中调取医疗诊断问答对，以获取疾病具体信息、症状、治疗方法、注意事项等信息。
+
+    Args:
+        query: 需要查询的语句
+
+    Returns:
+        从Huatuo医疗问答对数据库中获取的查询结果
+    """
+    return await asyncio.to_thread(_get_rag_qa_tool_sync, query)
 
 if __name__=='__main__':
 
